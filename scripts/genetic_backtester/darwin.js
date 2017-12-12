@@ -19,7 +19,7 @@ let Phenotypes = require('./phenotype.js');
 
 let VERSION = 'Zenbot 4 Genetic Backtester v0.2';
 
-let PARALLEL_LIMIT = require('os').cpus().length;
+let PARALLEL_LIMIT = (process.env.PARALLEL_LIMIT && +process.env.PARALLEL_LIMIT) || require('os').cpus().length;
 
 let TREND_EMA_MIN = 20;
 let TREND_EMA_MAX = 20;
@@ -43,6 +43,7 @@ let runCommand = (taskStrategyName, phenotype, cb) => {
     cci_srsi: `--cci_periods=${phenotype.rsi_periods} --rsi_periods=${phenotype.srsi_periods} --srsi_periods=${phenotype.srsi_periods} --srsi_k=${phenotype.srsi_k} --srsi_d=${phenotype.srsi_d} --oversold_rsi=${phenotype.oversold_rsi} --overbought_rsi=${phenotype.overbought_rsi} --oversold_cci=${phenotype.oversold_cci} --overbought_cci=${phenotype.overbought_cci} --constant=${phenotype.constant}`,
     srsi_macd: `--rsi_periods=${phenotype.rsi_periods} --srsi_periods=${phenotype.srsi_periods} --srsi_k=${phenotype.srsi_k} --srsi_d=${phenotype.srsi_d} --oversold_rsi=${phenotype.oversold_rsi} --overbought_rsi=${phenotype.overbought_rsi} --ema_short_period=${phenotype.ema_short_period} --ema_long_period=${phenotype.ema_long_period} --signal_period=${phenotype.signal_period} --up_trend_threshold=${phenotype.up_trend_threshold} --down_trend_threshold=${phenotype.down_trend_threshold}`,
     macd: `--ema_short_period=${phenotype.ema_short_period} --ema_long_period=${phenotype.ema_long_period} --signal_period=${phenotype.signal_period} --up_trend_threshold=${phenotype.up_trend_threshold} --down_trend_threshold=${phenotype.down_trend_threshold} --overbought_rsi_periods=${phenotype.overbought_rsi_periods} --overbought_rsi=${phenotype.overbought_rsi}`,
+    neural: `--activation_1_type=${phenotype.activation_1_type} --neurons_1=${phenotype.neurons_1} --depth=${phenotype.depth} --momentum=${phenotype.momentum} --decay=${phenotype.decay} --min_predict=${phenotype.min_predict} --learns=${phenotype.learns}`,
     rsi: `--rsi_periods=${phenotype.rsi_periods} --oversold_rsi=${phenotype.oversold_rsi} --overbought_rsi=${phenotype.overbought_rsi} --rsi_recover=${phenotype.rsi_recover} --rsi_drop=${phenotype.rsi_drop} --rsi_divisor=${phenotype.rsi_divisor}`,
     sar: `--sar_af=${phenotype.sar_af} --sar_max_af=${phenotype.sar_max_af}`,
     speed: `--baseline_periods=${phenotype.baseline_periods} --trigger_factor=${phenotype.trigger_factor}`,
@@ -73,7 +74,7 @@ let runCommand = (taskStrategyName, phenotype, cb) => {
       phenotype['sim'] = result;
       result['fitness'] = Phenotypes.fitness(phenotype);
     } catch (err) {
-      console.log(`Bad output detected`);
+      console.log(`Bad output detected`, err.toString());
       console.log(stdout);
     }
 
@@ -130,7 +131,6 @@ let processOutput = output => {
   delete r.order_adjust_time;
   delete r.population;
   delete r.population_data;
-  delete r.selector;
   delete r.sell_pct;
   delete r.start;
   delete r.stats;
@@ -152,6 +152,7 @@ let processOutput = output => {
     order_type: params.order_type,
     roi: roi,
     wlRatio: losses > 0 ? roundp(wins / losses, 3) : 'Infinity',
+    selector: params.selector,
     strategy: params.strategy,
     frequency: roundp((wins + losses) / days, 3)
   };
@@ -199,7 +200,14 @@ let RangeMakerTaker = () => {
     type: 'makertaker'
   };
   return r;
-}
+};
+
+let RangeNeuralActivation = () => {
+  var r = {
+    type: 'sigmoidtanhrelu'
+  };
+  return r;
+};
 
 let strategies = {
   cci_srsi: {
@@ -268,6 +276,25 @@ let strategies = {
     down_trend_threshold: Range(0, 50),
     overbought_rsi_periods: Range(1, 50),
     overbought_rsi: Range(20, 100)
+  },
+  neural: {
+    // -- common
+    period: RangePeriod(1, 120, 'm'),
+    min_periods: Range(1, 200),
+    markup_pct: RangeFloat(0, 5),
+    order_type: RangeMakerTaker(),
+    sell_stop_pct: Range0(1, 50),
+    buy_stop_pct: Range0(1, 50),
+    profit_stop_enable_pct: Range0(1, 20),
+    profit_stop_pct: Range(1,20),
+    // -- strategy
+    neurons_1: Range(1, 200),
+    activation_1_type: RangeNeuralActivation(),
+    depth: Range(1, 100),
+    min_predict: Range(1, 100),
+    momentum: Range(0, 100),
+    decay: Range(1, 10),
+    learns: Range(1, 200)
   },
   rsi: {
     // -- common
@@ -408,9 +435,6 @@ let simArgs = (argv.selector) ? argv.selector : 'bitfinex.ETH-USD';
 if (argv.days) {
   simArgs += ` --days=${argv.days}`;
 }
-if (argv.asset_capital) {
-  simArgs += ` --asset_capital=${argv.asset_capital}`;
-}
 if (argv.currency_capital) {
   simArgs += ` --currency_capital=${argv.currency_capital}`;
 }
@@ -420,6 +444,7 @@ if (argv.asset_capital) {
 if (argv.symmetrical) {
   simArgs += ` --symmetrical=true`;
 }
+simArgs += ` --filename none`;
 
 let strategyName = (argv.use_strategies) ? argv.use_strategies : 'all';
 let populationFileName = (argv.population_data) ? argv.population_data : null;
@@ -484,8 +509,8 @@ let simulateGeneration = () => {
 
     results.sort((a, b) => (a.fitness < b.fitness) ? 1 : ((b.fitness < a.fitness) ? -1 : 0));
 
-    let fieldsGeneral = ['fitness', 'vsBuyHold', 'wlRatio', 'frequency', 'strategy', 'order_type', 'endBalance', 'buyHold', 'wins', 'losses', 'period', 'min_periods', 'days', 'params'];
-    let fieldNamesGeneral = ['Fitness', 'VS Buy Hold (%)', 'Win/Loss Ratio', '# Trades/Day', 'Strategy', 'Order Type', 'Ending Balance ($)', 'Buy Hold ($)', '# Wins', '# Losses', 'Period', 'Min Periods', '# Days', 'Full Parameters'];
+    let fieldsGeneral = ['selector', 'fitness', 'vsBuyHold', 'wlRatio', 'frequency', 'strategy', 'order_type', 'endBalance', 'buyHold', 'wins', 'losses', 'period', 'min_periods', 'days', 'params'];
+    let fieldNamesGeneral = ['Selector', 'Fitness', 'VS Buy Hold (%)', 'Win/Loss Ratio', '# Trades/Day', 'Strategy', 'Order Type', 'Ending Balance ($)', 'Buy Hold ($)', '# Wins', '# Losses', 'Period', 'Min Periods', '# Days', 'Full Parameters'];
 
     let csv = json2csv({
       data: results,
@@ -494,12 +519,12 @@ let simulateGeneration = () => {
     });
 
     let fileDate = Math.round(+new Date() / 1000);
-    let fileName = `backtesting_${fileDate}.csv`;
+    let fileName = `simulations/backtesting_${fileDate}.csv`;
     fs.writeFile(fileName, csv, err => {
       if (err) throw err;
     });
 
-    // let fileNameJSON = `backtesting_${fileDate}.json`;
+    // let fileNameJSON = `simulations/backtesting_${fileDate}.json`;
     // fs.writeFile(fileNameJSON, JSON.stringify(results, null, 2), err => {
     //   if (err) throw err;
     // });
@@ -509,7 +534,7 @@ let simulateGeneration = () => {
       poolData[v] = pools[v]['pool'].population();
     });
 
-    let poolFileName = `generation_data_${fileDate}_gen_${generationCount}.json`;
+    let poolFileName = `simulations/generation_data_${fileDate}_gen_${generationCount}.json`;
     let poolDataJSON = JSON.stringify(poolData, null, 2);
     fs.writeFile(poolFileName, poolDataJSON, err => {
       if (err) throw err;

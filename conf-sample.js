@@ -36,6 +36,11 @@ c.kraken.secret = 'YOUR-SECRET'
 // Please read API TOS on https://www.kraken.com/u/settings/api
 c.kraken.tosagree = 'disagree'
 
+// to enable Binance trading, enter your API credentials:
+c.binance = {}
+c.binance.key = 'YOUR-API-KEY'
+c.binance.secret = 'YOUR-SECRET'
+
 // to enable Bittrex trading, enter your API credentials:
 c.bittrex = {}
 c.bittrex.key = 'YOUR-API-KEY'
@@ -58,28 +63,43 @@ c.bitstamp.secret = 'YOUR-SECRET'
 // A client ID is required on Bitstamp
 c.bitstamp.client_id = 'YOUR-CLIENT-ID'
 
+// to enable CEX.IO trading, enter your API credentials:
+c.cexio = {}
+c.cexio.username = 'YOUR-CLIENT-ID'
+c.cexio.key = 'YOUR-API-KEY'
+c.cexio.secret = 'YOUR-SECRET'
+
 // to enable QuadrigaCX tranding, enter your API credentials:
 c.quadriga = {}
-c.quadriga.key = 'YOUR-API-KEY';
-
+c.quadriga.key = 'YOUR-API-KEY'
 // this is the manual secret key entered by editing the API access
 // and NOT the md5 hash you see in the summary
-c.quadriga.secret = 'YOUR-SECRET';
-
+c.quadriga.secret = 'YOUR-SECRET'
 // replace with the client id used at login, as a string, not number
-c.quadriga.client_id = 'YOUR-CLIENT-ID';
+c.quadriga.client_id = 'YOUR-CLIENT-ID'
 
-// to enable BTC-e trading, enter your API credentials:
-c.btce = {}
-c.btce.key = 'YOUR-API-KEY'
-c.btce.secret = 'YOUR-SECRET'
+// to enable WEX.NZ trading, enter your API credentials:
+// Note: WexNZ only supports backfilling the last ~1/4 day ATM.
+c.wexnz = {}
+c.wexnz.key = 'YOUR-API-KEY'
+c.wexnz.secret = 'YOUR-SECRET'
 
 // to enable Gemini trading, enter your API credentials:
 c.gemini = {}
 c.gemini.key = 'YOUR-API-KEY'
-c.gemini.secret = 'YOUR-API-SECRET'
+c.gemini.secret = 'YOUR-SECRET'
 // set to false to trade on the live platform API
 c.gemini.sandbox = true
+
+// to enable hitBTC trading, enter your API credentials:
+c.hitbtc = {}
+c.hitbtc.key = 'YOUR-API-KEY'
+c.hitbtc.secret = 'YOUR-SECRET'
+
+// to enable therock trading, enter your API credentials:
+c.therock = {}
+c.therock.key = 'YOUR-API-KEY'
+c.therock.secret = 'YOUR-SECRET'
 
 // Optional stop-order triggers:
 
@@ -108,8 +128,10 @@ c.max_sell_loss_pct = 25
 c.order_poll_time = 5000
 // ms to wait for settlement (after an order cancel)
 c.wait_for_settlement = 5000
-// % to mark up or down price for orders
-c.markup_pct = 0
+// % to mark down buy price for orders
+c.markdown_buy_pct = 0
+// % to mark up sell price for orders
+c.markup_sell_pct = 0
 // become a market taker (high fees) or a market maker (low fees)
 c.order_type = 'maker'
 // when supported by the exchange, use post only type orders.
@@ -133,6 +155,8 @@ c.rsi_periods = 14
 c.balance_snapshot_period = '15m'
 // avg. amount of slippage to apply to sim trades
 c.avg_slippage_pct = 0.045
+// time to leave an order open, default to 1 day (this feature is not supported on all exchanges, currently: GDAX)
+c.cancel_after = 'day'
 
 // Notifiers:
 c.notifiers = {}
@@ -166,3 +190,31 @@ c.notifiers.slack = {}
 c.notifiers.slack.on = false
 c.notifiers.slack.webhook_url = ''
 // end slack config
+
+// discord configs
+c.notifiers.discord = {}
+c.notifiers.discord.on = false // false discord disabled; true discord enabled (key should be correct)
+c.notifiers.discord.id = 'YOUR-WEBHOOK-ID'
+c.notifiers.discord.token = 'YOUR-WEBHOOK-TOKEN'
+// end discord configs
+
+// prowl configs
+c.notifiers.prowl = {}
+c.notifiers.prowl.on = false // false prowl disabled; true prowl enabled (key should be correct)
+c.notifiers.prowl.key = 'YOUR-API-KEY'
+// end prowl configs
+
+// textbelt configs
+c.notifiers.textbelt = {}
+c.notifiers.textbelt.on = false // false textbelt disabled; true textbelt enabled (key should be correct)
+c.notifiers.textbelt.phone = '3121234567'
+c.notifiers.textbelt.key = 'textbelt'
+// end textbelt configs
+
+// output
+c.output  = {}
+
+// REST API
+c.output.api = {}
+c.output.api.on = true
+c.output.api.port = 0 // 0 = random port
